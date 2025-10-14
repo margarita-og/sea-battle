@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.Serialization.Formatters;
 namespace SeaBattle
 {
     class Program
@@ -51,7 +52,7 @@ namespace SeaBattle
             Console.WriteLine("  └─────────────────────┘    └─────────────────────┘");
         }
 
-        static void EditField(string coord, char[,] fieldWithShips, char[,] fieldInGame)
+        static void EditField(int playersNumber, string coord, char[,] fieldWithShips, char[,] fieldInGame)
         {
             int savedX = Console.CursorLeft;
             int savedY = Console.CursorTop;
@@ -59,63 +60,88 @@ namespace SeaBattle
             char letter = coord[0];
             string numberStr = coord.Substring(1);
             int number = int.Parse(numberStr);
+            int x_coord = number - 1;
+            int y_coord = letter - 'A';
             int x, y;
-            if (fieldWithShips[number - 1, letter - 'A'] == 's')
+            if (playersNumber == 1)
+            {
+                x = 2 * (y_coord) + 4;
+                y = x_coord + 4;
+            }
+            else
+            {
+                x = 27 + 2 * (y_coord) + 4;
+                y = x_coord + 4;
+            }
+            Console.SetCursorPosition(x, y);
+            if (fieldWithShips[x_coord, y_coord] == 's')
             {
                 fieldInGame[number - 1, letter - 'A'] = 'X';
-                x = 2 * (letter - 'A') + 4;
-                y = number - 1 + 4;
-                Console.SetCursorPosition(x, y);
-                Console.Write('X');
+                if (ShipDestroyed(x_coord, y_coord, fieldWithShips, fieldInGame))
+                {
+                    PrintDestroyedShip(playersNumber, x_coord, y_coord, fieldWithShips);
+                }
+                else
+                {
+                    Console.Write('X');
+                }
             }
             else
             {
                 fieldInGame[number - 1, letter - 'A'] = 'O';
-                x = 2 * (letter - 'A') + 4;
-                y = number - 1 + 4;
-                Console.SetCursorPosition(x, y);
                 Console.Write('O');
             }
+
             Console.SetCursorPosition(savedX, savedY);
         }
 
-        static bool PlayerMoveStatus(string coord, char[,] fieldWithShips)
+        static string PlayerMoveStatus(string coord, char[,] fieldWithShips, char[,] fieldInGame)
         {
             char letter = coord[0];
             string numberStr = coord.Substring(1);
             int number = int.Parse(numberStr);
-            if (fieldWithShips[number - 1, letter - 'A'] == 's')
+            int x_coord = number - 1;
+            int y_coord = letter - 'A';
+            if (fieldWithShips[x_coord, y_coord] == 's')
             {
-                return true;
+                if (ShipDestroyed(x_coord, y_coord, fieldWithShips, fieldInGame))
+                {
+                    return "destroy";
+                }
+                return "hit";
             }
-            return false;
+            return "miss";
         }
 
-        static bool ProcessingPlayersMove(char [,] fieldWithShips, char [,] fieldInGame, int defaultX, int defaultY)
+        static bool ProcessingPlayersMove(int playersNumber, char[,] fieldWithShips, char[,] fieldInGame, int defaultX, int defaultY)
         {
             string coordinate = Console.ReadLine();
             int currentX;
-            EditField(coordinate, fieldWithShips, fieldInGame);
-            if (PlayerMoveStatus(coordinate, fieldWithShips))
+            EditField(playersNumber, coordinate, fieldWithShips, fieldInGame);
+            Console.SetCursorPosition(defaultX, defaultY);
+            if (PlayerMoveStatus(coordinate, fieldWithShips, fieldInGame) == "hit")
             {
-                Console.SetCursorPosition(defaultX, defaultY);
                 Console.Write("Попал! ");
                 currentX = Console.CursorLeft;
                 Console.SetCursorPosition(currentX, defaultY);
+                return true;
+            }
+            else if (PlayerMoveStatus(coordinate, fieldWithShips, fieldInGame) == "destroy")
+            {
+                Console.Write("Уничтожен! ");
+                currentX = Console.CursorLeft;
+                Console.SetCursorPosition(currentX, defaultY);
+                return true;
             }
             else
             {
-                Console.SetCursorPosition(defaultX, defaultY);
                 Console.Write("Промах. ");
                 currentX = Console.CursorLeft;
                 Console.SetCursorPosition(currentX, defaultY);
+                return false;
             }
-            if (PlayerMoveStatus(coordinate, fieldWithShips))
-            {
-                return true;
-            }
-            return false;
         }
+        
         
         static void SetShipBound(char[,] field)
         {
@@ -189,6 +215,131 @@ namespace SeaBattle
             Console.WriteLine("Ваше поле выглядит так:\n");
             PrintField(field);
         }
+        static List<(int x, int y)> CurrentShip(int x, int y, char[,] fieldWithShips)
+        {
+            List<(int x, int y)> currentShipCoordinates = new List<(int, int)>();
+            int y_iterator = y;
+            int x_iterator = x;
+            while (y_iterator < 10)
+            {
+                if (fieldWithShips[x, y_iterator] == 's')
+                {
+                    currentShipCoordinates.Add((x, y_iterator));
+                    y_iterator++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            y_iterator = y - 1;
+            while (y_iterator >= 0)
+            {
+                if (fieldWithShips[x, y_iterator] == 's')
+                {
+                    currentShipCoordinates.Add((x, y_iterator));
+                    y_iterator--;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            x_iterator = x + 1;
+            while (x_iterator < 10)
+            {
+                if (fieldWithShips[x_iterator, y] == 's')
+                {
+                    currentShipCoordinates.Add((x_iterator, y));
+                    x_iterator++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            x_iterator = x - 1;
+            while (x_iterator >= 0)
+            {
+                if (fieldWithShips[x_iterator, y] == 's')
+                {
+                    currentShipCoordinates.Add((x_iterator, y));
+                    x_iterator--;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return currentShipCoordinates;
+        }
+        static void PrintDestroyedShip(int playersNumber, int x_coord, int y_coord, char [,] fieldWithShips)
+        {
+            List<(int x, int y)> currentShipCoordinates = CurrentShip(x_coord, y_coord, fieldWithShips);
+            int x, y; 
+            foreach (var coord in currentShipCoordinates)
+            {
+                if (playersNumber == 1)
+                {
+                    x = 2 * (coord.y) + 4;
+                    y = coord.x + 4;
+                }
+                else
+                {
+                    x = 27 + 2 * (coord.y) + 4;
+                    y = coord.x + 4;
+                }
+                Console.SetCursorPosition(x, y);
+                Console.Write('#');
+            }
+        }
+
+        static bool ShipDestroyed(int x, int y, char [,] fieldWithShips, char [,] fieldInGame)
+        {
+            List<(int x, int y)> currentShipCoordinates = CurrentShip(x, y, fieldWithShips);
+            foreach (var coord in currentShipCoordinates)
+            {
+                if (fieldInGame[coord.x, coord.y] != 'X' && fieldInGame[coord.x, coord.y] != '#')
+                {
+                    return false;
+                }
+            }
+            foreach (var coord in currentShipCoordinates)
+            {
+                fieldInGame[coord.x, coord.y] = '#';
+            }
+            return true;
+        }
+
+        static int GameIsOver(char [,] firstFieldInGame, char [,] secondFieldInGame)
+        {
+            int FIELD_SIZE = 10;
+            int hashtagCount1 = 0;
+            int hashtagCount2 = 0;
+            for (int i = 0; i < FIELD_SIZE; i++)
+            {
+                for (int j = 0; j < FIELD_SIZE; j++)
+                {
+                    if (firstFieldInGame[i, j] == '#')
+                    {
+                        hashtagCount1++;
+                    }
+                    if (secondFieldInGame[i, j] == '#')
+                    {
+                        hashtagCount2++;
+                    }
+                }
+            }
+            if (hashtagCount1 == 20)
+            {
+                return 2;
+            }
+            if (hashtagCount2 == 20)
+            {
+                return 1;
+            }
+            return 0;
+        }
         static void Main(string[] args)
         {
             Console.Clear();
@@ -211,13 +362,18 @@ namespace SeaBattle
                     secondPlayerFieldInGame[i, j] = '~';
                 }
             }
+            //!!!
+            firstPlayerField[1, 3] = 's';
+            firstPlayerField[1, 4] = 's';
+            firstPlayerField[1, 5] = 's';
+            //!!!
             //FieldSetup(firstPlayerField);
             Console.WriteLine("Нажмите Enter и передайте устройство второму игроку");
             Console.ReadLine();
             Console.Clear();
             //FieldSetup(secondPlayerField);
             PrintBothFields(firstPlayerFieldInGame, secondPlayerFieldInGame);
-            bool firstPlayerTurn = false;
+            bool firstPlayerTurn = true;
 
             int defaultX = Console.CursorLeft;
             int defaultY = Console.CursorTop;
@@ -228,7 +384,7 @@ namespace SeaBattle
                 if (firstPlayerTurn)
                 {
                     Console.WriteLine("Ход первого игрока, введите координату, куда будете бить");
-                    if (!ProcessingPlayersMove(secondPlayerField, secondPlayerFieldInGame, defaultX, defaultY))
+                    if (!ProcessingPlayersMove(2, secondPlayerField, secondPlayerFieldInGame, defaultX, defaultY))
                     {
                         firstPlayerTurn = false;
                     }
@@ -236,14 +392,28 @@ namespace SeaBattle
                 else
                 {
                     Console.WriteLine("Ход второго игрока, введите координату, куда будете бить");
-                    if (!ProcessingPlayersMove(firstPlayerField, firstPlayerFieldInGame, defaultX, defaultY))
+                    if (!ProcessingPlayersMove(1, firstPlayerField, firstPlayerFieldInGame, defaultX, defaultY))
                     {
                         firstPlayerTurn = true;
                     }
+                }
+                int result = GameIsOver(firstPlayerFieldInGame, secondPlayerFieldInGame);
+                if (result != 0)
+                {
+                    if (result == 1)
+                    {
+                        Console.SetCursorPosition(defaultX, defaultY);
+                        Console.WriteLine("Первый игрок победил!");
+                    }
+                    else
+                    {
+                        Console.SetCursorPosition(defaultX, defaultY);
+                        Console.WriteLine("Второй игрок победил!");
+                    }
+                    break;
                 }
                 // break;
             }
         }
     }
 }
-
