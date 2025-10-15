@@ -115,9 +115,13 @@ namespace SeaBattle
 
         static bool ProcessingPlayersMove(int playersNumber, char[,] fieldWithShips, char[,] fieldInGame, int defaultX, int defaultY)
         {
+            Console.Write(new string(' ', Console.WindowWidth));
+            Console.SetCursorPosition(defaultX, defaultY+1);
             string coordinate = Console.ReadLine();
             int currentX;
             EditField(playersNumber, coordinate, fieldWithShips, fieldInGame);
+            Console.SetCursorPosition(defaultX, defaultY);
+            Console.Write(new string(' ', Console.WindowWidth));
             Console.SetCursorPosition(defaultX, defaultY);
             if (PlayerMoveStatus(coordinate, fieldWithShips, fieldInGame) == "hit")
             {
@@ -276,7 +280,7 @@ namespace SeaBattle
         static void PrintDestroyedShip(int playersNumber, int x_coord, int y_coord, char [,] fieldWithShips)
         {
             List<(int x, int y)> currentShipCoordinates = CurrentShip(x_coord, y_coord, fieldWithShips);
-            int x, y; 
+            int x, y;
             foreach (var coord in currentShipCoordinates)
             {
                 if (playersNumber == 1)
@@ -291,6 +295,33 @@ namespace SeaBattle
                 }
                 Console.SetCursorPosition(x, y);
                 Console.Write('#');
+            }
+            foreach (var coord in currentShipCoordinates)
+            {
+                for (int i = -1; i < 2; i++)
+                {
+                    for (int j = -1; j < 2; j++)
+                    {
+                        if (coord.x + i >= 0 && coord.x + i < 10 && coord.y + j >= 0 && coord.y + j < 10)
+                        {
+                            if (fieldWithShips[coord.x + i, coord.y + j] != 's')
+                            {
+                                if (playersNumber == 1)
+                                {
+                                    x = 2 * (coord.y+j) + 4;
+                                    y = coord.x+i + 4;
+                                }
+                                else
+                                {
+                                    x = 27 + 2 * (coord.y+j) + 4;
+                                    y = coord.x+i + 4;
+                                }
+                                Console.SetCursorPosition(x, y);
+                                Console.Write('O');
+                            }
+                        }
+                    }
+                }
             }
         }
 
