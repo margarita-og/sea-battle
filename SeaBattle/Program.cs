@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Runtime.Serialization.Formatters;
+
 namespace SeaBattle
 {
     class Program
@@ -14,7 +14,14 @@ namespace SeaBattle
 
                 for (int j = 0; j < 10; j++)
                 {
-                    Console.Write(field[i, j] + " ");
+                    if (field[i, j] == 's')
+                    {
+                        Console.Write("■ ");
+                    }
+                    else
+                    {
+                        Console.Write(field[i, j] + " ");
+                    }
                 }
 
                 Console.WriteLine("│");
@@ -115,9 +122,18 @@ namespace SeaBattle
 
         static bool ProcessingPlayersMove(int playersNumber, char[,] fieldWithShips, char[,] fieldInGame, int defaultX, int defaultY)
         {
+            int countOfLinesWithErrors = 0;
             Console.Write(new string(' ', Console.WindowWidth));
             Console.SetCursorPosition(defaultX, defaultY+1);
-            string coordinate = Console.ReadLine();
+            string coordinate = Console.ReadLine().ToUpper();
+            string result = CheckingSingleCoordinate(coordinate);
+            while (result != "ok")
+            {
+                Console.WriteLine(result);
+                coordinate = Console.ReadLine().ToUpper();
+                result = CheckingSingleCoordinate(coordinate);
+                countOfLinesWithErrors += 2;
+            }
             int currentX;
             EditField(playersNumber, coordinate, fieldWithShips, fieldInGame);
             Console.SetCursorPosition(defaultX, defaultY);
@@ -127,6 +143,15 @@ namespace SeaBattle
             {
                 Console.Write("Попал! ");
                 currentX = Console.CursorLeft;
+                if (countOfLinesWithErrors != 0)
+                {
+                    for (int i = 2; i < countOfLinesWithErrors+2; i++)
+                    {
+                        Console.SetCursorPosition(defaultX, defaultY+i);
+                        Console.Write(new string(' ', Console.WindowWidth));
+                    }
+                }
+                
                 Console.SetCursorPosition(currentX, defaultY);
                 return true;
             }
@@ -134,6 +159,14 @@ namespace SeaBattle
             {
                 Console.Write("Уничтожен! ");
                 currentX = Console.CursorLeft;
+                if (countOfLinesWithErrors != 0)
+                {
+                    for (int i = 2; i < countOfLinesWithErrors+2; i++)
+                    {
+                        Console.SetCursorPosition(defaultX, defaultY+i);
+                        Console.Write(new string(' ', Console.WindowWidth));
+                    }
+                }
                 Console.SetCursorPosition(currentX, defaultY);
                 return true;
             }
@@ -141,35 +174,20 @@ namespace SeaBattle
             {
                 Console.Write("Промах. ");
                 currentX = Console.CursorLeft;
+                if (countOfLinesWithErrors != 0)
+                {
+                    for (int i = 2; i < countOfLinesWithErrors+2; i++)
+                    {
+                        Console.SetCursorPosition(defaultX, defaultY+i);
+                        Console.Write(new string(' ', Console.WindowWidth));
+                    }
+                }
                 Console.SetCursorPosition(currentX, defaultY);
                 return false;
             }
         }
-        
-        
-        static void SetShipBound(char[,] field)
-        {
-            for (int i = 0; i < 10; i++)
-            {
-                if (field[i, 1] == 's') field[i, 0] = 'x';
-                for (int j = 1; j < 9; j++)
-                {
-                    if (field[i, j] == 's') continue;
-                    if (field[i, j - 1] == 's' || field[i, j + 1] == 's') field[i, 0] = 'x';
-                }
-                if (field[i, 8] == 's') field[i, 9] = 'x';
-            }
-        }
-        static void CleanFromBounds(char[,] field)
-        {
-            for (int i = 0; i < 10; i++)
-            {
-                for (int j = 0; i < 10; i++)
-                {
-                    if (field[i, j] != 's') field[i, j] = '~';
-                }
-            }
-        }
+
+
         static void CoordsIntoField(char[,] field, string input)
         {
             string[] coordinates = input.Split(' ');
@@ -184,19 +202,165 @@ namespace SeaBattle
                 }
             }
         }
+        static string CheckingSingleCoordinate(string input)
+        {
+            string acceptableLetters = "ABCDEFGHIJ";
+            string[] coordinate = input.Split(' ');
+            if (coordinate.Length > 1)
+            {
+                return "Введённая координата должна быть единственной";
+            }
+            string coord = coordinate[0];
+            char letter = coord[0];
+            string numberStr = coord.Substring(1);
+            int number;
+            if (int.TryParse(numberStr, out number))
+            {
+                if (!acceptableLetters.Contains(letter))
+                {
+                    return "Некорректный ввод, буква должна быть от A до J";
+                }
+                if (number <= 0 || number > 10)
+                {
+                    return "Некорректный ввод, число должно быть от 1 до 10";
+                }
+            }
+            else
+            {
+                return "Некорректный ввод, введите координату вида A1-J10";
+            }
+            return "ok";
+        }
+        static string CheckingInput(string input, char[,] field, int lenOfShip)
+        {
+            string acceptableLetters = "ABCDEFGHIJ";
+            List<(int x, int y)> inputCoordinates = new List<(int x, int y)>();
+            string[] curShip = input.Split(' ');
+            HashSet<string> uniqueCoordinates = new HashSet<string>(curShip);
+            if (uniqueCoordinates.Count < lenOfShip)
+            {
+                return $"Вы ввели недостаточное количество координат для корбля длины {lenOfShip}, или они повторяются";
+            }
+            if (uniqueCoordinates.Count > lenOfShip)
+            {
+                return $"Вы ввели слишком много координат для корбля длины {lenOfShip}";
+            }
+            foreach (string coord in curShip)
+            {
+                char letter = coord[0];
+                string numberStr = coord.Substring(1);
+                int number;
+                if (int.TryParse(numberStr, out number))
+                {
+                    if (!acceptableLetters.Contains(letter))
+                    {
+                        return "Некорректный ввод, буква должна быть от A до J";
+                    }
+                    if (number <= 0 || number > 10)
+                    {
+                        return "Некорректный ввод, число должно быть от 1 до 10";
+                    }
+                }
+                else
+                {
+                    if (lenOfShip == 1)
+                    {
+                        return "Некорректный ввод, введите координату вида A1-J10";
+                    }
+                    return "Некорректный ввод, введите координаты вида A1-J10 через пробел";
+                }
+                inputCoordinates.Add((number - 1, letter - 'A'));
+
+            }
+            if (lenOfShip != 1)
+            {
+                int common_x = inputCoordinates[0].x;
+                int common_x_count = 0;
+                int common_y = inputCoordinates[0].y;
+                int common_y_count = 0;
+                foreach (var coord in inputCoordinates)
+                {
+                    if (coord.x == common_x)
+                    {
+                        common_x_count++;
+                    }
+                    if (coord.y == common_y)
+                    {
+                        common_y_count++;
+                    }
+                }
+                if (!(common_x_count == lenOfShip || common_y_count == lenOfShip))
+                {
+                    return "Корабль должен целиком лежать в одном ряду или столбце, введите другие координаты";
+                }
+                if (common_x_count == lenOfShip)
+                {
+                    var sorted = inputCoordinates.OrderBy(coord => coord.x).ToList();
+                    for (int i = 1; i < lenOfShip; i++)
+                    {
+                        if (sorted[i].y != sorted[i - 1].y + 1)
+                        {
+                            return "Между вашими координатами есть пустые клетки, введите другие";
+                        }
+                    }
+                }
+                else
+                {
+                    var sorted = inputCoordinates.OrderBy(coord => coord.y).ToList();
+                    for (int i = 1; i < lenOfShip; i++)
+                    {
+                        if (sorted[i].x != sorted[i - 1].x + 1)
+                        {
+                            return "Между вашими координатами есть пустые клетки, введите другие";
+                        }
+                    }
+                }
+            }
+            foreach (var coord in inputCoordinates)
+            {
+                for (int i = -1; i < 2; i++)
+                {
+                    for (int j = -1; j < 2; j++)
+                    {
+                        if (coord.x+i >= 0 && coord.x+i < 10 && coord.y+j >= 0 && coord.y+j < 10)
+                        {
+                            if (field[coord.x+i, coord.y+j] == 's')
+                            {
+                                return "Корабль не может быть построен по вашим координатам, так как он будет касаться другого вашего корабля, введите новые";
+                            }
+                        }
+                    }
+                }
+            }
+            return "ok";
+        }
 
         static void FieldSetup(char[,] field)
         {
             Console.WriteLine("Укажите через пробел координаты клеток, где будет находиться корабль из четырёх клеток\n");
             PrintField(field);
-            string input = Console.ReadLine();
+            string input = Console.ReadLine().ToUpper();
+            string checkResult = CheckingInput(input, field, 4);
+            while (checkResult != "ok")
+            {
+                Console.WriteLine(checkResult);
+                input = Console.ReadLine().ToUpper();
+                checkResult = CheckingInput(input, field, 4);
+            }
             CoordsIntoField(field, input);
             Console.Clear();
             Console.WriteLine("Укажите через пробел координаты клеток, где будет находиться первый корабль из трёх клеток, а также координаты второго на новой строке\n");
             PrintField(field);
             for (int i = 0; i < 2; i++)
             {
-                input = Console.ReadLine();
+                input = Console.ReadLine().ToUpper();
+                checkResult = CheckingInput(input, field, 3);
+                while (checkResult != "ok")
+                {
+                    Console.WriteLine(checkResult);
+                    input = Console.ReadLine().ToUpper();
+                    checkResult = CheckingInput(input, field, 3);
+                }
                 CoordsIntoField(field, input);
             }
             Console.Clear();
@@ -204,7 +368,14 @@ namespace SeaBattle
             PrintField(field);
             for (int i = 0; i < 3; i++)
             {
-                input = Console.ReadLine();
+                input = Console.ReadLine().ToUpper();
+                checkResult = CheckingInput(input, field, 2);
+                while (checkResult != "ok")
+                {
+                    Console.WriteLine(checkResult);
+                    input = Console.ReadLine().ToUpper();
+                    checkResult = CheckingInput(input, field, 2);
+                }
                 CoordsIntoField(field, input);
             }
             Console.Clear();
@@ -212,7 +383,14 @@ namespace SeaBattle
             PrintField(field);
             for (int i = 0; i < 4; i++)
             {
-                input = Console.ReadLine();
+                input = Console.ReadLine().ToUpper();
+                checkResult = CheckingInput(input, field, 1);
+                while (checkResult != "ok")
+                {
+                    Console.WriteLine(checkResult);
+                    input = Console.ReadLine().ToUpper();
+                    checkResult = CheckingInput(input, field, 1);
+                }
                 CoordsIntoField(field, input);
             }
             Console.Clear();
@@ -393,16 +571,14 @@ namespace SeaBattle
                     secondPlayerFieldInGame[i, j] = '~';
                 }
             }
-            //!!!
-            firstPlayerField[1, 3] = 's';
-            firstPlayerField[1, 4] = 's';
-            firstPlayerField[1, 5] = 's';
-            //!!!
-            //FieldSetup(firstPlayerField);
+            FieldSetup(firstPlayerField);
             Console.WriteLine("Нажмите Enter и передайте устройство второму игроку");
             Console.ReadLine();
             Console.Clear();
-            //FieldSetup(secondPlayerField);
+            FieldSetup(secondPlayerField);
+            Console.WriteLine("Нажмите Enter, чтобы начать бой");
+            Console.ReadLine();
+            Console.Clear();
             PrintBothFields(firstPlayerFieldInGame, secondPlayerFieldInGame);
             bool firstPlayerTurn = true;
 
@@ -443,7 +619,6 @@ namespace SeaBattle
                     }
                     break;
                 }
-                // break;
             }
         }
     }
